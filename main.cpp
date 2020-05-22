@@ -15,6 +15,9 @@
 #include <thread>
 #include <condition_variable>
 #include <boost/filesystem.hpp>
+#include <tbb/concurrent_queue.h>
+
+
 
 
 inline std::chrono::high_resolution_clock::time_point get_current_time_fenced(){
@@ -77,90 +80,113 @@ inline long long to_us(const D& d){
 }
 
 
-int main(int argc, char *argv[]){
+//int main(int argc, char *argv[]){
+//
+//	boost::locale::generator gen;
+//	static std::locale loc = gen("en_US.UTF-8");
+//	std::locale::global(loc);
+//
+//
+//	//define config file
+//	std::string conf;
+//	if (argc > 2) {
+//		return 2;
+//	}
+//	else if (argc == 1) {
+//
+//		if (std::filesystem::exists(std::filesystem::path("config.dat"))) {
+//			conf = "config.dat";
+//		}
+//	}
+//	else {
+//		std::cout << "now, I'm here " << std::endl;
+//		conf = argv[1];
+//	}
+//
+//
+//	std::ifstream conf_stream(conf);
+//	if (!conf_stream.is_open()) {
+//		throw;
+//	}
+//
+//	configuration_t confs = read_conf(conf_stream);
+//
+//	safeQueue<std::pair<std::string, std::string>> files;
+//	safeQueue<std::map<std::string, int>> maps;
+//
+//	//set queues max_size
+//	files.setMaxSize(confs.files_size);
+//	maps.setMaxSize(confs.maps_size);
+//
+//	//init reader thread with fill_queue
+//	auto start = get_current_time_fenced();
+//
+//
+//	std::thread reader(fill_queue, std::ref(confs.name_dir), std::ref(files));
+//
+//	//init all indexer threads with count_words
+//	std::vector<std::thread> indexers;
+//	std::mutex mx;
+//	int currThreads = confs.num_indexers;
+//	for (int i = 0; i < confs.num_indexers; i++) {
+//		indexers.emplace_back(indexer, std::ref(files), std::ref(maps), std::ref(mx), std::ref(currThreads));
+//	}
+//
+//	std::vector<std::thread> mergers;
+//	for (int i = 0; i < confs.num_mergers; i++) {
+//		mergers.emplace_back(std::thread(merge, std::ref(maps)));
+//	}
+//
+//	reader.join();
+//
+//	for (auto &c : indexers) {
+//		c.join();
+//	}
+//	auto end = get_current_time_fenced();
+//	auto diff = end-start;
+//
+//
+//	for (auto &c: mergers) {
+//		c.join();
+//	}
+//
+//
+//	std::map<std::string, int> res = maps.popFront();
+//
+//	sort_given_comparator(std::ref(res), std::ref(confs.a_out_n), compare_pairs_results);
+//	sort_given_comparator(std::ref(res), std::ref(confs.a_out_a), compare_strings);
+//
+//	for (const auto &c: res) {
+//		std::cout << c.first + " " << c.second << std::endl;
+//	}
+//
+//	std::cout << "Total: " << to_us(diff);
+//
+//	return 0;
+//
+//}///------------------------------------------------------------------------------------------------------------------///
 
-	boost::locale::generator gen;
-	static std::locale loc = gen("en_US.UTF-8");
-	std::locale::global(loc);
+using namespace std;
+using namespace tbb;
 
+int main() {
+	concurrent_queue<int> queue;
+	for( int i=0; i<10; ++i )
+		queue.push(i);
+	typedef concurrent_queue<int>::iterator iter;
+	for( iter i(queue.unsafe_begin()); i!=queue.unsafe_end(); ++i )
+		cout << *i << " ";
+	cout << endl;
 
-	//define config file
-	std::string conf;
-	if (argc > 2) {
-		return 2;
-	}
-	else if (argc == 1) {
-
-		if (std::filesystem::exists(std::filesystem::path("config.dat"))) {
-			conf = "config.dat";
-		}
-	}
-	else {
-		std::cout << "now, I'm here " << std::endl;
-		conf = argv[1];
-	}
-
-
-	std::ifstream conf_stream(conf);
-	if (!conf_stream.is_open()) {
-		throw;
-	}
-
-	configuration_t confs = read_conf(conf_stream);
-
-	safeQueue<std::pair<std::string, std::string>> files;
-	safeQueue<std::map<std::string, int>> maps;
-
-	//set queues max_size
-	files.setMaxSize(confs.files_size);
-	maps.setMaxSize(confs.maps_size);
-
-	//init reader thread with fill_queue
-	auto start = get_current_time_fenced();
-
-
-	std::thread reader(fill_queue, std::ref(confs.name_dir), std::ref(files));
-
-	//init all indexer threads with count_words
-	std::vector<std::thread> indexers;
-	std::mutex mx;
-	int currThreads = confs.num_indexers;
-	for (int i = 0; i < confs.num_indexers; i++) {
-		indexers.emplace_back(indexer, std::ref(files), std::ref(maps), std::ref(mx), std::ref(currThreads));
-	}
-
-	std::vector<std::thread> mergers;
-	for (int i = 0; i < confs.num_mergers; i++) {
-		mergers.emplace_back(std::thread(merge, std::ref(maps)));
-	}
-
-	reader.join();
-
-	for (auto &c : indexers) {
-		c.join();
-	}
-	auto end = get_current_time_fenced();
-	auto diff = end-start;
-
-
-	for (auto &c: mergers) {
-		c.join();
-	}
-
-
-	std::map<std::string, int> res = maps.popFront();
-
-	sort_given_comparator(std::ref(res), std::ref(confs.a_out_n), compare_pairs_results);
-	sort_given_comparator(std::ref(res), std::ref(confs.a_out_a), compare_strings);
-
-	for (const auto &c: res) {
-		std::cout << c.first + " " << c.second << std::endl;
-	}
-
-	std::cout << "Total: " << to_us(diff);
-
+	concurrent_queue<std::pair<std::string, std::string>> queue1;
+	std::pair<std::string, std::string> pair;
+	for( int i=0; i<10; ++i )
+		queue1.push(std::pair<std::string, std::string>(std::to_string(i), std::to_string(i)));
+	bool b = queue1.try_pop(std::ref(pair));
+	cout << b << endl;
+	cout << pair.first << std::endl;
+	cout << pair.second << std::endl;
+//	cout << endl;
 	return 0;
-
-}///------------------------------------------------------------------------------------------------------------------///
-
+}
 
