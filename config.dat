@@ -1,0 +1,7 @@
+indir="/mnt/iso/0"
+out_by_a="res_a.txt"
+out_by_n="res_n.txt"
+indexing_threads=4
+merging_threads=2
+queue_size=8
+queue_size=50
